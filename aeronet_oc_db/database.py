@@ -88,13 +88,23 @@ class Database:
                        [s2_tile(*v) for v in zip(cat.site, cat.longitude, cat.latitude)])
         return cat
 
-    def site_info(self):
+    def site_info(self, level=None):
         '''One row per site (index ``site``): latitude, longitude, elevation, Sentinel-2 tile and, for each
-        level, the number of records and the first and last dates. Replaces the ``info_aeronet_oc_*.csv``
-        tables.'''
+        level, the number of records and the first and last dates.
+
+        With ``level``, the columns of the former ``info_aeronet_oc_v15_location.csv`` table
+        (``start_date``, ``end_date``, ``number``, ``latitude``, ``longitude``, ``s2_tile``) for that level,
+        all the sites included (``number`` = 0 without data).'''
         cat = self.catalog
         if cat.empty:
             return pd.DataFrame()
+        if level is not None:
+            info = self.site_info()
+            n = info.get(f'n_{level}', pd.Series(0, index=info.index))
+            fmt = lambda c: info[c].dt.strftime('%Y-%m-%d') if c in info else ''
+            return pd.DataFrame({'start_date': fmt(f'start_{level}'), 'end_date': fmt(f'end_{level}'),
+                                 'number': n, 'latitude': info.latitude, 'longitude': info.longitude,
+                                 's2_tile': info.s2_tile}, index=info.index)
         info = cat.groupby('site', sort=False)[['latitude', 'longitude', 'elevation', 's2_tile']].first()
         for level, g in cat.groupby('level'):
             g = g.set_index('site')
@@ -235,12 +245,20 @@ class Database:
     # ------------------------------------------------------------------------------------------
     # readers
     # ------------------------------------------------------------------------------------------
-    def open(self, site, level='lev20', **kwargs):
-        '''netCDF dataset of a site (lazy, see :func:`xarray.open_dataset`)'''
+    def open(self, site, level='lev20', legacy_names=False, **kwargs):
+        '''netCDF dataset of a site (lazy, see :func:`xarray.open_dataset`).
+
+        :param legacy_names: variable names of the former ``AERONET/netcdf/OCv3`` files
+            (:func:`aeronet_oc_db.legacy.to_legacy`), for the code written for them
+        '''
         path = self.netcdf_path(site, level)
         if not path.exists():
             raise FileNotFoundError(f'{path} (no data, or run Database.build)')
-        return xr.open_dataset(path, **kwargs)
+        ds = xr.open_dataset(path, **kwargs)
+        if legacy_names:
+            from .legacy import to_legacy
+            ds = to_legacy(ds)
+        return ds
 
     def table(self, level='lev20', sites=None, start=None, end=None, columns=None, wl=None):
         '''Records of several sites as a long DataFrame (one row per record and band), read from the

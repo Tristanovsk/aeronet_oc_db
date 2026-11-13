@@ -101,3 +101,18 @@ def test_site_info(db):
     db.build()
     info = db.site_info()
     assert info.loc['Blyth_NOAH', 's2_tile'] == '30UWG' and info.loc['Blyth_NOAH', 'n_lev15'] == 33
+
+
+def test_legacy_names(db):
+    db.build()
+    ds = db.open('Blyth_NOAH', 'lev15', legacy_names=True)
+    for v in ['Aerosol_Optical_Depth', 'Lwn_fQ', 'Rrs_Lwn', 'Rrs_Lwn_fQ', 'Rrs_Lw', 'Total_Precipitable_Water(cm)',
+              'Wind_Speed(ms)', 'Pressure(hPa)', 'Chlorophyll-a', 'Solar_Zenith_Angle', 'SZA', 'wavelength',
+              'Site_Latitude(Degrees)', 'AERONET_Site_Name', 'year', 'season', 'Day_of_Year(Fraction)',
+              'Number_of_Wavelengths']:
+        assert v in ds, v
+    assert float(ds.wavelength[0, 0]) == pytest.approx(0.413)
+    assert float(ds['Site_Latitude(Degrees)'][0]) == pytest.approx(55.146399)
+    info = db.site_info('lev15')
+    assert list(info.columns) == ['start_date', 'end_date', 'number', 'latitude', 'longitude', 's2_tile']
+    assert info.loc['Blyth_NOAH', 'number'] == 33 and info.loc['Blyth_NOAH', 'start_date'] == '2016-04-21'

@@ -3,7 +3,7 @@ AERONET-OC version 3 database: download and update of the raw files of the AERON
 conversion into CF/ACDD netCDF-4 and Hive-partitioned Parquet, catalog and readers for the
 validation of satellite products (grs, hgrs, grstbx, radcalnet_oc).
 '''
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 from .database import Database, DEFAULT_ROOT  # noqa: E402,F401
 from .raw import RawFile, parse  # noqa: E402,F401
@@ -11,9 +11,9 @@ from .config import default_root  # noqa: E402,F401
 
 
 # shortcuts on the default database (location: see :mod:`aeronet_oc_db.config`)
-def open_site(site, level='lev20', **kwargs):
+def open_site(site, level='lev20', legacy_names=False, **kwargs):
     '''netCDF dataset (time, wl) of a site, see :meth:`Database.open`'''
-    return Database().open(site, level, **kwargs)
+    return Database().open(site, level, legacy_names=legacy_names, **kwargs)
 
 
 def raw_file(site, level='lev20'):
@@ -21,9 +21,9 @@ def raw_file(site, level='lev20'):
     return Database().raw_path(site, level)
 
 
-def site_info():
+def site_info(level=None):
     '''one row per site: location, Sentinel-2 tile and coverage, see :meth:`Database.site_info`'''
-    return Database().site_info()
+    return Database().site_info(level)
 
 
 def catalog():
