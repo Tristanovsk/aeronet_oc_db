@@ -248,7 +248,7 @@ class Database:
         :param times: times (UTC)
         :param stat: ``'median'``, ``'mean'`` or ``'nearest'``
         :return: Dataset with a ``match`` dimension: the time of the request (``time``), the
-            statistics of the variables, ``n_records``, ``lag_min`` (median lag of the records, or lag of
+            statistics of the variables, ``n_records`` (records used: 1 for ``'nearest'``), ``lag_min`` (median lag of the records, or lag of
             the nearest one, in minutes) and ``std`` of ``Rrs_Lwn_fQ``; matches without record are dropped
         '''
         ds = self.open(site, level).load()
@@ -262,12 +262,12 @@ class Database:
             num = sel[[v for v in sel.data_vars if sel[v].dtype.kind in 'fi' and 'time' in sel[v].dims]]
             if stat == 'nearest':
                 k = int(np.argmin(lags))
-                r, lag_min = num.isel(time=k), float(lags[k])
+                r, lag_min, n = num.isel(time=k), float(lags[k]), 1
             else:
                 r = getattr(num, stat)('time', skipna=True, keep_attrs=True)
-                lag_min = float(np.median(lags))
+                lag_min, n = float(np.median(lags)), sel.sizes['time']
             r = r.drop_vars('time', errors='ignore')
-            r['n_records'] = sel.sizes['time']
+            r['n_records'] = n                     # records used
             r['lag_min'] = lag_min
             if 'Rrs_Lwn_fQ' in sel:
                 r['Rrs_Lwn_fQ_std'] = sel.Rrs_Lwn_fQ.std('time')
