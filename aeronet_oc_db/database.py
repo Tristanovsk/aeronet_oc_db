@@ -1,7 +1,8 @@
 '''
 AERONET-OC database: update of the raw files, build of the products, catalog and readers.
 
-Layout of the root folder (``$AERONET_OC_ROOT``, default ``/DATA/AERONET/OCv3``)::
+Layout of the root folder (see :mod:`aeronet_oc_db.config`: ``$AERONET_OC_ROOT``, the user config file or
+``/DATA/AERONET/OCv3``)::
 
     <site>_OCv3.lev15, <site>_OCv3.lev20      raw files (legacy layout, read by the existing tools)
     db/catalog.csv                             one row per site and level (coverage, location, checksums)
@@ -22,12 +23,14 @@ import xarray as xr
 
 from . import download
 from .build import build_site, sha256
+from .config import default_root
 from .raw import RawFile
+from .sites import s2_tile
 
-DEFAULT_ROOT = Path(os.environ.get('AERONET_OC_ROOT', '/DATA/AERONET/OCv3'))
+DEFAULT_ROOT = default_root()
 LEVELS = ('lev15', 'lev20')
 CATALOG_COLUMNS = ['site', 'level', 'n_records', 'start', 'end', 'latitude', 'longitude', 'elevation',
-                   'wavelengths', 'instruments', 'pi_name', 'raw_file', 'raw_sha256', 'raw_updated',
+                   's2_tile',                    'wavelengths', 'instruments', 'pi_name', 'raw_file', 'raw_sha256', 'raw_updated',
                    'netcdf', 'parquet', 'built']
 log = logging.getLogger('aeronet_oc_db')
 
@@ -38,7 +41,7 @@ class Database:
     Example::
 
         from aeronet_oc_db import Database
-        db = Database()                          # $AERONET_OC_ROOT or /DATA/AERONET/OCv3
+        db = Database()                          # location: see aeronet_oc_db.config
         db.update(levels=('lev15', 'lev20'))     # download, then build the changed sites
         ds = db.open('AAOT', 'lev20')            # xarray.Dataset (time, wl)
         df = db.table('lev20', sites=['AAOT', 'Venise'], start='2023-01-01',
@@ -49,7 +52,7 @@ class Database:
     '''
 
     def __init__(self, root=None):
-        self.root = Path(root) if root else DEFAULT_ROOT
+        self.root = Path(root).expanduser() if root else default_root()
         self.dir = self.root / 'db'
         self.catalog_file = self.dir / 'catalog.csv'
 
@@ -78,11 +81,34 @@ class Database:
         '''one row per site and level (only the sites with data)'''
         if not self.catalog_file.exists():
             return pd.DataFrame(columns=CATALOG_COLUMNS)
-        return pd.read_csv(self.catalog_file, parse_dates=['start', 'end', 'raw_updated', 'built'],
-                           dtype={'wavelengths': str, 'instruments': str})
+        cat = pd.read_csv(self.catalog_file, parse_dates=['start', 'end', 'raw_updated', 'built'],
+                          dtype={'wavelengths': str, 'instruments': str, 's2_tile': str})
+        if 's2_tile' not in cat:            # catalog written by version 1.0
+            cat.insert(cat.columns.get_loc('elevation') + 1, 's2_tile',
+                       [s2_tile(*v) for v in zip(cat.site, cat.longitude, cat.latitude)])
+        return cat
+
+    def site_info(self):
+        '''One row per site (index ``site``): latitude, longitude, elevation, Sentinel-2 tile and, for each
+        level, the number of records and the first and last dates. Replaces the ``info_aeronet_oc_*.csv``
+        tables.'''
+        cat = self.catalog
+        if cat.empty:
+            return pd.DataFrame()
+        info = cat.groupby('site', sort=False)[['latitude', 'longitude', 'elevation', 's2_tile']].first()
+        for level, g in cat.groupby('level'):
+            g = g.set_index('site')
+            info[f'n_{level}'] = g.n_records
+            info[f'start_{level}'] = g.start
+            info[f'end_{level}'] = g.end
+        for c in info.filter(like='n_lev'):
+            info[c] = info[c].fillna(0).astype(int)
+        return info.sort_index(key=lambda s: s.str.lower())
 
     def _save_catalog(self, cat):
         os.makedirs(self.dir, exist_ok=True)
+        cat = cat.copy()
+        cat['s2_tile'] = [s2_tile(*v) for v in zip(cat.site, cat.longitude, cat.latitude)]
         cat = cat[CATALOG_COLUMNS].sort_values(['site', 'level'], key=lambda s: s.str.lower())
         tmp = str(self.catalog_file) + '.tmp'
         cat.to_csv(tmp, index=False, date_format='%Y-%m-%d %H:%M:%S')

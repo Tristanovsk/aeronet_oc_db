@@ -75,3 +75,29 @@ def test_merge_incremental():
     newer = RawFile(raw.preamble, raw.header, raw.rows[20:] + [raw.rows[-1]])
     merged = raw.merge(newer, since)
     assert merged.rows[:20] == raw.rows[:20] and len(merged.rows) == len(raw.rows) + 1
+
+
+def test_config_resolution(tmp_path, monkeypatch):
+    from aeronet_oc_db.config import default_root, FALLBACK_ROOT
+    monkeypatch.delenv('AERONET_OC_ROOT', raising=False)
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'cfg'))
+    assert default_root() == FALLBACK_ROOT
+    (tmp_path / 'cfg' / 'aeronet_oc_db').mkdir(parents=True)
+    (tmp_path / 'cfg' / 'aeronet_oc_db' / 'config.toml').write_text(f'root = "{tmp_path}/from_file"\n')
+    assert default_root() == tmp_path / 'from_file'
+    monkeypatch.setenv('AERONET_OC_ROOT', str(tmp_path / 'from_env'))
+    assert default_root() == tmp_path / 'from_env'
+    assert Database().root == tmp_path / 'from_env'
+
+
+def test_mgrs_tile():
+    from aeronet_oc_db.sites import mgrs_tile, s2_tile
+    assert mgrs_tile(12.5083, 45.3139) == '33TUL'          # Venise, east of the 32/33 zone limit
+    assert s2_tile('Venise', 12.5083, 45.3139) == '32TQR'  # curated: tile of the overlap used for Venise
+    assert mgrs_tile(-61.722, -39.148) == '20HPB'          # Bahia_Blanca, southern hemisphere
+
+
+def test_site_info(db):
+    db.build()
+    info = db.site_info()
+    assert info.loc['Blyth_NOAH', 's2_tile'] == '30UWG' and info.loc['Blyth_NOAH', 'n_lev15'] == 33

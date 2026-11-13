@@ -23,4 +23,4 @@ version = { attr = "aeronet_oc_db.__version__" }
 include = ["aeronet_oc_db*"]
 
 [tool.setuptools.package-data]
-"aeronet_oc_db.data" = ["*.dat"]
+"aeronet_oc_db.data" = ["*.dat", "*.csv"]
