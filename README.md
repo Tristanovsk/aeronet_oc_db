@@ -44,6 +44,53 @@ Level 2.0 data are quality-assured with a delay of months to years and past reco
 reprocessed. Use `--days` for frequent updates, and run a full update (the default) from time to
 time, e.g. monthly.
 
+## Location of the database (shared by all the packages)
+
+The packages find the database without hardcoded paths, in this order:
+
+1. `$AERONET_OC_ROOT`;
+2. `root` in `~/.config/aeronet_oc_db/config.toml` (also read by Jupyter, PyCharm and cron, which do not
+   always inherit the shell environment):
+   ```toml
+   root = "/DATA/AERONET/OCv3"
+   ```
+3. `/DATA/AERONET/OCv3`.
+
+## Use from the other packages
+
+`aeronet_oc_db` is the single access layer to the AERONET-OC data. Each package declares it as an
+optional dependency (`aeronet` extra), imports it only in the functions that need it, and keeps a
+fallback when it is missing (CI, users without the database):
+
+| package | install | entry points |
+|---|---|---|
+| radcalnet_oc | `pip install radcalnet_oc[aeronet]` | `Aeronet().read_site(site, level)`, `Aeronet.open_site`, `Aeronet().aeronet_oc_site_info` |
+| grstbx | `pip install grstbx[aeronet]` | `Data().read_aeronet_oc_site`, `Data.open_aeronet_oc`, `Data.aeronet_oc_sites` |
+| invRrs | `pip install invRrs[aeronet]` | `aeronet_data_loading.read().read_site`, `read.open_site`, `read.sites` |
+| hgrs | validation scripts | `validation/aeronet_oc/common.py` (`HGRS_VAL_AERONET` overrides the location) |
+| aeronet_visu | | `aeronet_files_merger.py` |
+
+Functions of `aeronet_oc_db` for the code of the packages:
+
+```python
+import aeronet_oc_db
+aeronet_oc_db.open_site('AAOT', 'lev20')                    # xarray.Dataset (time, wl), database names
+aeronet_oc_db.open_site('AAOT', 'lev20', legacy_names=True) # names of the former netcdf/OCv3 files
+aeronet_oc_db.raw_file('AAOT', 'lev20')                     # raw file, for the existing text readers
+aeronet_oc_db.site_info()                                   # location, Sentinel-2 tile, coverage per level
+aeronet_oc_db.site_info(level='lev15')                      # columns of info_aeronet_oc_v15_location.csv
+aeronet_oc_db.default_root()                                # location of the database
+```
+
+`legacy_names=True` gives the variable names of the former `AERONET/netcdf/OCv3` conversion
+(`Aerosol_Optical_Depth`, `Lwn_fQ`, `Rrs_Lwn*`, `'Total_Precipitable_Water(cm)'`, `wavelength` in um,
+`SZA`, ...), so that existing code only changes the line that opens the data. New code should use the
+database names.
+
+The Sentinel-2 tile of each site comes from `aeronet_oc_db/data/site_s2_tile.csv` (checked by hand: the
+stations in the overlap of two tiles, e.g. Venise and AAOT in 32TQR rather than 33TUL), or is computed
+(MGRS 100 km square) for the new sites. Add a line to that file to force the tile of a site.
+
 ## Layout
 
 ```
