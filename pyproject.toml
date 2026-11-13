@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aeronet_oc_db"
+dynamic = ["version"]
+description = "AERONET-OC version 3 database: download, update, netCDF/Parquet conversion and readers for satellite validation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pandas>=2", "xarray", "netCDF4", "pyarrow>=12", "requests"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+aeronet-oc-db = "aeronet_oc_db.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "aeronet_oc_db.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["aeronet_oc_db*"]
+
+[tool.setuptools.package-data]
+"aeronet_oc_db.data" = ["*.dat"]
