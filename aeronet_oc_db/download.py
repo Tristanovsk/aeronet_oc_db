@@ -57,7 +57,7 @@ def fetch(site, level='lev20', start=FIRST_DATE, end=None):
     '''
     if level not in LEVELS:
         raise ValueError(f'level must be one of {LEVELS}')
-    end = pd.Timestamp.utcnow().tz_localize(None).normalize() if end is None else end
+    end = pd.Timestamp.now("UTC").tz_localize(None).normalize() if end is None else end
     return RawFile.from_text(_strip_html(_get(_params(level, start, end, site))))
 
 
@@ -67,6 +67,6 @@ def active_sites(days=60, level='lev15', end=None):
 
     :return: dict site -> number of records
     '''
-    end = pd.Timestamp.utcnow().tz_localize(None).normalize() if end is None else pd.Timestamp(end)
+    end = pd.Timestamp.now("UTC").tz_localize(None).normalize() if end is None else pd.Timestamp(end)
     raw = RawFile.from_text(_strip_html(_get(_params(level, end - pd.Timedelta(days=days), end))))
     return pd.Series([r.split(',', 1)[0] for r in raw.rows]).value_counts().sort_index().to_dict()

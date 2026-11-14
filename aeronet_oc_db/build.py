@@ -92,7 +92,7 @@ def to_dataset(rec, level):
                                                          positive='up')))
     ds.time.attrs.update(standard_name='time', long_name='time of the measurement (UTC)', axis='T')
     ds.wl.attrs.update(units='nm', long_name='nominal wavelength', standard_name='radiation_wavelength')
-    now = pd.Timestamp.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    now = pd.Timestamp.now("UTC").strftime('%Y-%m-%dT%H:%M:%SZ')
     ds.attrs = {
         'Conventions': 'CF-1.10, ACDD-1.3',
         'featureType': 'timeSeries',

@@ -173,6 +173,28 @@ pd.read_parquet('/DATA/AERONET/OCv3/db/parquet', filters=[('level', '==', 'lev20
 ~/anaconda3/envs/py12/bin/python -m pytest tests
 ```
 
+## Releasing on PyPI
+
+The workflow `.github/workflows/pypi.yml` builds the sdist and the wheel, checks them (`twine check`, version,
+content), runs the tests on the installed wheel with Python 3.10 and 3.12, then publishes with PyPI trusted
+publishing (no token stored).
+
+One-time setup, on pypi.org and test.pypi.org (*Your projects > Publishing > Add a new pending publisher*):
+owner `Tristanovsk`, repository `aeronet_oc_db`, workflow `pypi.yml`, environment `pypi` (resp.
+`testpypi`). In the GitHub repository, create the environments `pypi` and `testpypi`
+(*Settings > Environments*; a required reviewer on `pypi` adds a manual approval before each upload).
+
+Release:
+
+1. set `__version__` in `aeronet_oc_db/__init__.py` (the only place, `pyproject.toml` reads it);
+2. *Actions > Publish on PyPI > Run workflow* with `testpypi`, then check
+   `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ aeronet_oc_db`;
+3. tag and push: `git tag -a v<version> -m "aeronet_oc_db <version>" && git push origin v<version>`: the
+   workflow publishes on PyPI (the tag must match `__version__`).
+
+Once on PyPI, `pip install radcalnet_oc[aeronet]` (or grstbx, invRrs) installs `aeronet_oc_db` with no
+extra step.
+
 ## Data policy
 
 AERONET-OC data are public. Publications must acknowledge AERONET and the site PIs (the PI is

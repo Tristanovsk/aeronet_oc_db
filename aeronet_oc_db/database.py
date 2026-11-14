@@ -214,7 +214,7 @@ class Database:
                     rows.pop((site, level), None)
                     report.append(dict(site=site, level=level, status='no data'))
                     continue
-                now = pd.Timestamp.utcnow().tz_localize(None)
+                now = pd.Timestamp.now("UTC").tz_localize(None)
                 rows[(site, level)] = dict(
                     site=site, level=level, **info, raw_file=raw.name, raw_sha256=digest,
                     raw_updated=pd.Timestamp(os.path.getmtime(raw), unit='s'),

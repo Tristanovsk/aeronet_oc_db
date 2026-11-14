@@ -1,0 +1,102 @@
+# Build aeronet_oc_db and publish it on PyPI (see "Releasing on PyPI" in README.md).
+#
+# - push of a tag v*: build, test, then publish on PyPI;
+# - by hand (Actions tab, "Run workflow"): build, test, then publish on TestPyPI or PyPI.
+#
+# Trusted publishing (no token stored): declare this repository, this workflow (pypi.yml) and the
+# environment (pypi / testpypi) as a trusted publisher of the aeronet_oc_db project on pypi.org and
+# test.pypi.org before the first run ("pending publisher" for a project not yet on the index).
+name: Publish on PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Package index'
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the sdist and the wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+
+      - name: Check the version and the content of the wheel
+        run: |
+          version=$(python -c "import ast, pathlib; t = pathlib.Path('aeronet_oc_db/__init__.py').read_text(); print(next(n.value.value for n in ast.parse(t).body if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == '__version__'))")
+          echo "version: $version"
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "v$version" != "$GITHUB_REF_NAME" ]]; then
+            echo "the tag $GITHUB_REF_NAME does not match aeronet_oc_db.__version__ ($version)"; exit 1
+          fi
+          unzip -l dist/*.whl
+          for f in aeronet_oc_db/data/Thuillier_2003_0.3nm.dat aeronet_oc_db/data/site_s2_tile.csv; do
+            unzip -l dist/*.whl | grep -q " $f$" || { echo "missing in the wheel: $f"; exit 1; }
+          done
+          if unzip -l dist/*.whl | grep -E " tests/"; then
+            echo "tests in the wheel"; exit 1
+          fi
+
+      - name: Run the unit tests on the wheel (Python 3.10 and 3.12)
+        run: |
+          for py in 3.10 3.12; do
+            python -m pip install --quiet uv
+            uv venv --quiet --python "$py" /tmp/venv$py
+            uv pip install --quiet --python /tmp/venv$py/bin/python dist/*.whl pytest
+            # from a copy of the tests, so that the installed package is imported, not the repository
+            rm -rf /tmp/tests && cp -r tests /tmp/tests
+            (cd /tmp && /tmp/venv$py/bin/python -m pytest -q tests)
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-testpypi:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.repository == 'testpypi'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/aeronet_oc_db/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    needs: build
+    if: github.event_name == 'push' || inputs.repository == 'pypi'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/aeronet_oc_db/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

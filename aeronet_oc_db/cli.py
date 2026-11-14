@@ -44,7 +44,7 @@ def main(argv=None):
     if a.cmd == 'update':
         since = a.since
         if a.days:
-            since = pd.Timestamp.utcnow().tz_localize(None).normalize() - pd.Timedelta(days=a.days)
+            since = pd.Timestamp.now("UTC").tz_localize(None).normalize() - pd.Timedelta(days=a.days)
         res = db.update(a.sites, a.levels, since, a.discover, a.workers, a.force)
         print(res.to_string(index=False))
     elif a.cmd == 'build':

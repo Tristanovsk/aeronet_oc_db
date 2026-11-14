@@ -10,7 +10,7 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
-dependencies = ["numpy", "pandas>=2", "xarray", "netCDF4", "pyarrow>=12", "requests"]
+dependencies = ["numpy", "pandas>=2", "xarray", "netCDF4", "pyarrow>=12", "requests", "pyproj"]
 
 [project.urls]
 Repository = "https://github.com/Tristanovsk/aeronet_oc_db"
