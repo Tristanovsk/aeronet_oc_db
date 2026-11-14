@@ -12,8 +12,13 @@ Resolution order:
 3. ``/DATA/AERONET/OCv3``.
 '''
 import os
-import tomllib
+import re
 from pathlib import Path
+
+try:
+    import tomllib
+except ImportError:          # Python 3.10
+    tomllib = None
 
 FALLBACK_ROOT = Path('/DATA/AERONET/OCv3')
 
@@ -29,8 +34,12 @@ def default_root():
         return Path(os.environ['AERONET_OC_ROOT']).expanduser()
     f = config_file()
     if f.exists():
-        with open(f, 'rb') as fh:
-            root = tomllib.load(fh).get('root')
+        if tomllib is not None:
+            with open(f, 'rb') as fh:
+                root = tomllib.load(fh).get('root')
+        else:
+            m = re.search(r'^\s*root\s*=\s*["\'](.+?)["\']', f.read_text(), re.M)
+            root = m.group(1) if m else None
         if root:
             return Path(root).expanduser()
     return FALLBACK_ROOT
