@@ -23,8 +23,14 @@ and does the following:
 ## Install
 
 ```bash
-~/anaconda3/envs/py12/bin/pip install -e /DATA/AERONET/TOOL/aeronet_oc_db
+pip install git+https://github.com/Tristanovsk/aeronet_oc_db.git
+# development (editable) install
+git clone https://github.com/Tristanovsk/aeronet_oc_db.git && pip install -e aeronet_oc_db
 ```
+
+The packages that use it declare it as their `aeronet` extra under its name (`aeronet_oc_db>=1.2`), because
+PyPI does not accept dependencies given by a git URL: install `aeronet_oc_db` from GitHub first, then e.g.
+`pip install radcalnet_oc[aeronet]`.
 
 ## Update
 
